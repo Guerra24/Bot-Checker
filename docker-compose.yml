@@ -1,11 +1,8 @@
 version: '3.9'
 
 services:
-  app:
-    build:
-      dockerfile: Dockerfile
-    image: botchecker:1.1.1
-    container_name: botchecker
+  botchecker:
+    image: ghcr.io/ckmu32/bot-checker:main
     environment:
       - BOT_USER=<YOUR_BOT_NAME>
       - BOT_TOKEN=<YOUR_BOT_TOKEN_WITH_SCOPES>
@@ -13,4 +10,3 @@ services:
       - BOT_CLIENT_ID=<THE_BOT_CLIENT_FROM_DEVELOPER_CONSOLE>
       - BOT_CHECKER_ACTIVE=Y
       - CHATTERS_TO_IGNORE=<USERS_THAT_WILL_BE_IGNORED_SEPARATED_BY_COMMA>
-    entrypoint: ["java","-jar","/usr/app/bot-checker.jar"]
