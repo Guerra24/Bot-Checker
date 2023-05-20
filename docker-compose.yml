@@ -2,7 +2,7 @@ version: '3.9'
 
 services:
   botchecker:
-    image: botchecker:latest
+    image: ghcr.io/ckmu32/bot-checker:main
     environment:
       - BOT_USER=<YOUR_BOT_NAME>
       - BOT_TOKEN=<YOUR_BOT_TOKEN_WITH_SCOPES>
