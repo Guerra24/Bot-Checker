@@ -2,13 +2,17 @@ package com.ckmu32.service;
 
 import java.io.IOException;
 import java.net.URI;
+import java.text.MessageFormat;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.StringJoiner;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import com.ckmu32.api.OnlineBotsAPI;
 import com.ckmu32.api.TwitchAPI;
+import com.ckmu32.utilities.Utilities;
 
 import jakarta.websocket.ClientEndpoint;
 import jakarta.websocket.ContainerProvider;
@@ -17,35 +21,37 @@ import jakarta.websocket.OnOpen;
 import jakarta.websocket.Session;
 
 @ClientEndpoint
-public class TwitchChatService implements MessageService {
+public class TwitchChatService implements Utilities {
     private static final String BOTS_COMMAND = "!bots";
 
     private Session session;
     private ExecutorService executor;
     private TwitchAPI twitchAPI;
     private OnlineBotsAPI botsAPI;
+    private MessageServiceInterface messageService;
 
     private String user;
     private String token;
     private String host;
-    private String channel;
     private String clientID;
     private List<String> chattersToIgnoreList;
+    private List<String> channelsToJoin;
     private int port;
     private boolean isJoined;
 
-    public TwitchChatService(String user, String token, String channel, String clientID,
-            List<String> chattersToIgnoreList) {
+    public TwitchChatService(String user, String token, String clientID,
+            List<String> chattersToIgnoreList, List<String> channelsToJoin) {
         // Fixed values per Twitch's IRC documentation.
         this.host = "ws://irc-ws.chat.twitch.tv";
         this.port = 80;
         this.user = user;
         this.token = token;
-        this.channel = channel;
         this.clientID = clientID;
         this.chattersToIgnoreList = chattersToIgnoreList;
+        this.channelsToJoin = channelsToJoin;
         this.twitchAPI = new TwitchAPI(this.clientID, this.token);
         this.botsAPI = new OnlineBotsAPI();
+        this.messageService = new MessageService();
 
         try {
             var container = ContainerProvider.getWebSocketContainer();
@@ -86,14 +92,14 @@ public class TwitchChatService implements MessageService {
             return;
         }
 
-        if (message.contains("JOIN #" + channel)) {
+        if (message.contains(TwitchTags.JOIN.message)) {
             processUserJoin(message);
             return;
         }
 
         // Process user messages on thread.
         executor.execute(() -> {
-            var parsedMessage = getMessageFromLine(message);
+            var parsedMessage = messageService.getMessageFromLine(message);
             if (parsedMessage.isEmpty())
                 return;
 
@@ -108,7 +114,7 @@ public class TwitchChatService implements MessageService {
                 if (!parsedMessage.get().isPrivileged())
                     return;
 
-                var broadcasterID = twitchAPI.getUserID(channel);
+                var broadcasterID = twitchAPI.getUserID(parsedMessage.get().getChannel());
                 if (broadcasterID.isEmpty())
                     return;
 
@@ -146,13 +152,16 @@ public class TwitchChatService implements MessageService {
                 }
                 // In case a bot was not banned.
                 if (botsBanned != botsDetected)
-                    sendMessageToChat("Bots that were detected: " + botsDetectedUsernames);
+                    sendMessageToChat("Bots that were detected: " + botsDetectedUsernames,
+                            parsedMessage.get().getChannel());
 
                 if (botsBanned > 0)
-                    sendMessageToChat("Bots that were banned: " + botsBannedUsernames);
+                    sendMessageToChat("Bots that were banned: " + botsBannedUsernames,
+                            parsedMessage.get().getChannel());
 
                 if (isInvalid(botsDetected) && isInvalid(botsBanned))
-                    sendMessageToChat("No bots were found, nor banned, everything is clean.");
+                    sendMessageToChat("No bots were found, nor banned, everything is clean.",
+                            parsedMessage.get().getChannel());
             }
         });
     }
@@ -161,7 +170,6 @@ public class TwitchChatService implements MessageService {
         // Split the message since twitch sends all the messages pre-join in one go.
         var messages = messageFromTwitch.split(System.lineSeparator());
         for (var message : messages) {
-            System.out.println("Message for join logic: " + message);
 
             if (message.contains(TwitchTags.SUCCESSFUL_LOGIN.message)) {
                 System.out.println("Connected and sending REQS and MEMBERSHIP.");
@@ -172,7 +180,9 @@ public class TwitchChatService implements MessageService {
 
             if (message.contains(TwitchTags.READY_TO_JOIN.message)) {
                 System.out.println("Sending JOIN.");
-                sendMessage("JOIN #" + channel.toLowerCase());
+                channelsToJoin
+                        .forEach(channelToJoin -> sendMessage(TwitchTags.JOIN.message + channelToJoin.toLowerCase()));
+                // sendMessage(TwitchTags.JOIN.messsage + channel.toLowerCase());
                 isJoined = true;
                 // Initialize the exuctor to process users commands.
                 executor = Executors.newFixedThreadPool(5);
@@ -183,54 +193,43 @@ public class TwitchChatService implements MessageService {
 
     private void processUserJoin(String messageFromTwitch) {
         try {
-            var botsBannedUsernames = new StringJoiner(", ");
+            Map<String, StringJoiner> bannedPerUser = new HashMap<>();
             var botList = botsAPI.getOnlineBots();
-            var broadcasterID = twitchAPI.getUserID(channel);
-
-            if (broadcasterID.isEmpty())
-                return;
 
             var moderatorID = twitchAPI.getUserID(user);
             if (moderatorID.isEmpty())
                 return;
 
-            var messages = messageFromTwitch.split(System.lineSeparator());
-            for (var message : messages) {
-
-                if (!message.contains("JOIN #" + channel))
+            var joinMessages = messageService.getJoinMessages(messageFromTwitch, twitchAPI);
+            for (var message : joinMessages) {
+                System.out.println(MessageFormat.format("Processing join for user {0} on channel {1}",
+                        message.userName(), message.channel()));
+                if (!botList.contains(message.userName()))
                     continue;
 
-                var messageParts = message.split("@");
+                if (chattersToIgnoreList.contains(message.userName()))
+                    continue;
 
-                for (var part : messageParts) {
-                    var domainPosition = part.indexOf(".tmi.twitch.tv");
+                System.out.println(MessageFormat.format("Issuing ban for {0} on channel {1}", message.userName(),
+                        message.channel()));
+                        
+                if (twitchAPI.banChatter(message.broadcasterID(), moderatorID.get(),
+                        message.userID().trim(), "Bot")) {
+                    bannedPerUser.compute(message.channel(), (k, v) -> {
+                        if (v != null)
+                            return v.add(message.userName());
 
-                    if (isInvalid(domainPosition))
-                        continue;
-
-                    var chatter = part.substring(0, domainPosition);
-
-                    if (isInvalid(chatter))
-                        continue;
-
-                    if (!botList.contains(chatter))
-                        continue;
-
-                    if (chattersToIgnoreList.contains(chatter))
-                        continue;
-
-                    var userToBanID = twitchAPI.getUserID(chatter);
-                    if (userToBanID.isEmpty())
-                        continue;
-
-                    if (twitchAPI.banChatter(broadcasterID.get(), moderatorID.get(), userToBanID.get(), "Bot"))
-                        botsBannedUsernames.add(chatter);
+                        return v = new StringJoiner(", ").add(message.userName());
+                    });
                 }
+
             }
-            if(!isInvalid(botsBannedUsernames.length()))
-                sendMessageToChat("Banned due to being a bot: " + botsBannedUsernames);
+            if (!isInvalid(bannedPerUser))
+                bannedPerUser.entrySet()
+                        .forEach(e -> sendMessageToChat("Banned due to being a bot: " + e.getValue(), e.getKey()));
+
         } catch (Exception e) {
-            System.out.println("Exception while processing user join: " + e.getMessage());
+            System.err.println("Exception while processing user join: " + e.getMessage());
         }
     }
 
@@ -242,7 +241,7 @@ public class TwitchChatService implements MessageService {
         }
     }
 
-    public void sendMessageToChat(String message) {
+    public void sendMessageToChat(String message, String channel) {
         try {
             session.getBasicRemote().sendText("PRIVMSG #" + channel + " :" + message);
         } catch (IOException ex) {

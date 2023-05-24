@@ -7,12 +7,13 @@ public class ConfigVariables {
     private String user;
     private String token;
     private String host;
-    private String channel;
     private String clientID;
     private List<String> chattersToIgnore;
-    
+    private List<String> channelsToJoin;
+
     public ConfigVariables() {
         this.chattersToIgnore = new ArrayList<>();
+        this.channelsToJoin = new ArrayList<>();
     }
 
     public String getUser() {
@@ -39,14 +40,6 @@ public class ConfigVariables {
         this.host = host;
     }
 
-    public String getChannel() {
-        return channel;
-    }
-
-    public void setChannel(String channel) {
-        this.channel = channel;
-    }
-
     public String getClientID() {
         return clientID;
     }
@@ -61,6 +54,14 @@ public class ConfigVariables {
 
     public void setChattersToIgnore(List<String> chattersToIgnoreList) {
         this.chattersToIgnore = chattersToIgnoreList;
+    }
+
+    public List<String> getChannelsToJoin() {
+        return channelsToJoin;
+    }
+
+    public void setChannelsToJoin(List<String> channelsToJoin) {
+        this.channelsToJoin = channelsToJoin;
     }
 
 }

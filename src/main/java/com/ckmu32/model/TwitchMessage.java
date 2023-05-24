@@ -4,13 +4,16 @@ public class TwitchMessage {
     private String user;
     private String message;
     private String messageID;
+    private String channel;
     private boolean privileged;
     private boolean broadcaster;
 
-    public TwitchMessage(String user, String message, String messageID, boolean privileged, boolean broadcaster) {
+    public TwitchMessage(String user, String message, String messageID, String channel, boolean privileged,
+            boolean broadcaster) {
         this.user = user;
         this.message = message;
         this.messageID = messageID;
+        this.channel = channel;
         this.privileged = privileged;
         this.broadcaster = broadcaster;
     }
@@ -55,47 +58,12 @@ public class TwitchMessage {
         this.broadcaster = broadcaster;
     }
 
-    @Override
-    public int hashCode() {
-        final int prime = 31;
-        int result = 1;
-        result = prime * result + ((user == null) ? 0 : user.hashCode());
-        result = prime * result + ((message == null) ? 0 : message.hashCode());
-        result = prime * result + ((messageID == null) ? 0 : messageID.hashCode());
-        result = prime * result + (privileged ? 1231 : 1237);
-        result = prime * result + (broadcaster ? 1231 : 1237);
-        return result;
+    public String getChannel() {
+        return channel;
     }
 
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj)
-            return true;
-        if (obj == null)
-            return false;
-        if (getClass() != obj.getClass())
-            return false;
-        TwitchMessage other = (TwitchMessage) obj;
-        if (user == null) {
-            if (other.user != null)
-                return false;
-        } else if (!user.equals(other.user))
-            return false;
-        if (message == null) {
-            if (other.message != null)
-                return false;
-        } else if (!message.equals(other.message))
-            return false;
-        if (messageID == null) {
-            if (other.messageID != null)
-                return false;
-        } else if (!messageID.equals(other.messageID))
-            return false;
-        if (privileged != other.privileged)
-            return false;
-        if (broadcaster != other.broadcaster)
-            return false;
-        return true;
+    public void setChannel(String channel) {
+        this.channel = channel;
     }
 
 }
