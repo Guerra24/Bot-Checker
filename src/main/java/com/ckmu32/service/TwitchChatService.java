@@ -38,6 +38,9 @@ public class TwitchChatService implements Utilities {
     private List<String> channelsToJoin;
     private int port;
     private boolean isJoined;
+    private String userID;
+    private Map<String, String> broadcasterIDMap;
+    private Map<String, String> userIDMap;
 
     public TwitchChatService(String user, String token, String clientID,
             List<String> chattersToIgnoreList, List<String> channelsToJoin) {
@@ -51,7 +54,18 @@ public class TwitchChatService implements Utilities {
         this.channelsToJoin = channelsToJoin;
         this.twitchAPI = new TwitchAPI(this.clientID, this.token);
         this.botsAPI = new OnlineBotsAPI();
+        this.broadcasterIDMap = new HashMap<>();
+        this.userID = twitchAPI.getUserID(user).orElse("");
         this.messageService = new MessageService();
+        this.userIDMap = new HashMap<>();
+
+        System.out.println("Getting broadcasters ID");
+        channelsToJoin.forEach(channel -> {
+            var broadcasterID = twitchAPI.getUserID(channel.trim());
+            if (broadcasterID.isEmpty())
+                return;
+            broadcasterIDMap.putIfAbsent(channel, broadcasterID.get());
+        });
 
         try {
             var container = ContainerProvider.getWebSocketContainer();
@@ -114,16 +128,15 @@ public class TwitchChatService implements Utilities {
                 if (!parsedMessage.get().isPrivileged())
                     return;
 
-                var broadcasterID = twitchAPI.getUserID(parsedMessage.get().getChannel());
-                if (broadcasterID.isEmpty())
+                var broadcasterID = broadcasterIDMap.get(parsedMessage.get().getChannel());
+                if (isInvalid(broadcasterID))
                     return;
 
-                var moderatorID = twitchAPI.getUserID(user);
-                if (moderatorID.isEmpty())
+                if (isInvalid(userID))
                     return;
 
                 var botList = botsAPI.getOnlineBots();
-                var chattersList = twitchAPI.getChatters(broadcasterID.get(), moderatorID.get());
+                var chattersList = twitchAPI.getChatters(broadcasterID.trim(), userID.trim());
 
                 var botsBanned = 0;
                 var botsDetected = 0;
@@ -138,11 +151,19 @@ public class TwitchChatService implements Utilities {
                     if (chattersToIgnoreList.contains(chatter))
                         continue;
 
-                    var userToBanID = twitchAPI.getUserID(chatter);
-                    if (userToBanID.isEmpty())
+                    if (!userIDMap.containsKey(chatter)) {
+                        var userToBanID = twitchAPI.getUserID(chatter);
+                        if (userToBanID.isEmpty())
+                            continue;
+
+                        userIDMap.put(chatter, userToBanID.get());
+                    }
+
+                    var userToBanID = userIDMap.get(chatter);
+                    if (isInvalid(userToBanID))
                         continue;
 
-                    if (twitchAPI.banChatter(broadcasterID.get(), moderatorID.get(), userToBanID.get(), "Bot")) {
+                    if (twitchAPI.banChatter(broadcasterID.trim(), userID.trim(), userToBanID.trim(), "Bot")) {
                         botsBanned++;
                         botsBannedUsernames.add(chatter);
                     }
@@ -196,11 +217,10 @@ public class TwitchChatService implements Utilities {
             Map<String, StringJoiner> bannedPerUser = new HashMap<>();
             var botList = botsAPI.getOnlineBots();
 
-            var moderatorID = twitchAPI.getUserID(user);
-            if (moderatorID.isEmpty())
+            if (isInvalid(userID))
                 return;
 
-            var joinMessages = messageService.getJoinMessages(messageFromTwitch, twitchAPI);
+            var joinMessages = messageService.getJoinMessages(messageFromTwitch, twitchAPI, broadcasterIDMap, userIDMap);
             for (var message : joinMessages) {
                 System.out.println(MessageFormat.format("Processing join for user {0} on channel {1}",
                         message.userName(), message.channel()));
@@ -212,8 +232,8 @@ public class TwitchChatService implements Utilities {
 
                 System.out.println(MessageFormat.format("Issuing ban for {0} on channel {1}", message.userName(),
                         message.channel()));
-                        
-                if (twitchAPI.banChatter(message.broadcasterID(), moderatorID.get(),
+
+                if (twitchAPI.banChatter(message.broadcasterID(), userID.trim(),
                         message.userID().trim(), "Bot")) {
                     bannedPerUser.compute(message.channel(), (k, v) -> {
                         if (v != null)

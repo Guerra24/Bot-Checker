@@ -21,7 +21,7 @@ public class OnlineBotsAPI {
             var request = HttpRequest.newBuilder()
                     .GET()
                     .uri(new URI(ONLINE_BOTS_URL))
-                    .timeout(Duration.ofSeconds(5))
+                    .timeout(Duration.ofSeconds(20))
                     .build();
             var response = client.send(request, BodyHandlers.ofString());
 

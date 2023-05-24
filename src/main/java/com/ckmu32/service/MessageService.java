@@ -13,7 +13,6 @@ import com.ckmu32.model.TwitchMessage;
 import com.ckmu32.utilities.Utilities;
 
 public class MessageService implements Utilities, MessageServiceInterface {
-
 	@Override
 	public Optional<TwitchMessage> getMessageFromLine(String line) {
 		try {
@@ -57,7 +56,7 @@ public class MessageService implements Utilities, MessageServiceInterface {
 	}
 
 	@Override
-	public List<TwitchJoinMessage> getJoinMessages(String twitchMessage, TwitchAPI twitchAPI) {
+	public List<TwitchJoinMessage> getJoinMessages(String twitchMessage, TwitchAPI twitchAPI, Map<String, String> broadcasterIDMap, Map<String, String> userIDMap) {
 		var messages = twitchMessage.split(System.lineSeparator());
 
 		if (isInvalid(messages.length))
@@ -76,8 +75,8 @@ public class MessageService implements Utilities, MessageServiceInterface {
 			if (isInvalid(channel))
 				continue;
 
-			var broadcasterID = twitchAPI.getUserID(channel.trim());
-			if (broadcasterID.isEmpty())
+			var broadcasterID = broadcasterIDMap.get(channel);
+			if (isInvalid(broadcasterID))
 				continue;
 
 			var messageParts = message.split("@");
@@ -92,11 +91,20 @@ public class MessageService implements Utilities, MessageServiceInterface {
 				if (isInvalid(userName))
 					continue;
 
+				if(userIDMap.containsKey(userName.trim())){
+					System.out.println("Using cache for user: " + userName.trim());
+					joinMessages.add(new TwitchJoinMessage(channel.trim(), userName.trim(), broadcasterID.trim(),
+					userIDMap.get(channel.trim())));
+					continue;
+				}
+
 				var userToBanID = twitchAPI.getUserID(userName.trim());
 				if (userToBanID.isEmpty())
 					continue;
 
-				joinMessages.add(new TwitchJoinMessage(channel.trim(), userName.trim(), broadcasterID.get().trim(),
+				userIDMap.put(channel.trim(), userToBanID.get());
+
+				joinMessages.add(new TwitchJoinMessage(channel.trim(), userName.trim(), broadcasterID.trim(),
 						userToBanID.get().trim()));
 			}
 		}

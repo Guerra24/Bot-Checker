@@ -1,6 +1,7 @@
 package com.ckmu32.service;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import com.ckmu32.api.TwitchAPI;
@@ -11,6 +12,6 @@ public interface MessageServiceInterface {
 
     Optional<TwitchMessage> getMessageFromLine(String line);
 
-    List<TwitchJoinMessage> getJoinMessages(String twitchMessage, TwitchAPI twitchAPI);
+    List<TwitchJoinMessage> getJoinMessages(String twitchMessage, TwitchAPI twitchAPI, Map<String, String> broadcasterIDMap, Map<String, String> userIDMap);
 
 }
