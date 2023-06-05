@@ -14,7 +14,7 @@ import com.ckmu32.service.TwitchChatService;
  */
 public class App {
     private static final String BOT_CONFIG_PROPERTIES = "BotConfig.properties";
-
+    
     public static void main(String[] args) {
         System.out.println("Starting bot");
         // Variables required for the process.
@@ -24,9 +24,9 @@ public class App {
         new TwitchChatService(
                 configVariables.getUser(),
                 configVariables.getToken(),
-                configVariables.getChannel(),
                 configVariables.getClientID(),
-                configVariables.getChattersToIgnore());
+                configVariables.getChattersToIgnore(),
+                configVariables.getChannelsToJoin());
         while (true) {
 
         }
@@ -43,9 +43,13 @@ public class App {
                 Arrays.stream(splittedChatters)
                         .forEach(chatter -> configVariables.getChattersToIgnore().add(chatter));
 
+            var splittedChannels = System.getenv("CHANNELS_TO_JOIN").split(",");
+            if (splittedChannels != null)
+                Arrays.stream(splittedChannels)
+                        .forEach(channel -> configVariables.getChannelsToJoin().add(channel));
+
             configVariables.setUser(System.getenv("BOT_USER"));
             configVariables.setToken(System.getenv("BOT_TOKEN"));
-            configVariables.setChannel(System.getenv("CHANNEL_TO_JOIN"));
             configVariables.setClientID(System.getenv("BOT_CLIENT_ID"));
             return configVariables;
         }
@@ -68,9 +72,13 @@ public class App {
             Arrays.stream(splittedChatters)
                     .forEach(chatter -> configVariables.getChattersToIgnore().add(chatter));
 
+        var splittedChannels = properties.getProperty("channelsToJoin").split(",");
+        if (splittedChannels != null)
+            Arrays.stream(splittedChannels)
+                    .forEach(channel -> configVariables.getChannelsToJoin().add(channel));
+
         configVariables.setUser(properties.getProperty("user"));
         configVariables.setToken(properties.getProperty("token"));
-        configVariables.setChannel(properties.getProperty("channel"));
         configVariables.setClientID(properties.getProperty("clientID"));
         return configVariables;
     }

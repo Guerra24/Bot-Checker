@@ -37,7 +37,7 @@ public class TwitchAPI {
 					.uri(new URI(USERS_URL + "?login=" + userName))
 					.setHeader("Client-Id", clientID)
 					.setHeader("Authorization", "Bearer " + token)
-					.timeout(Duration.ofSeconds(5))
+					.timeout(Duration.ofSeconds(10))
 					.build();
 			var response = client.send(request, BodyHandlers.ofString());
 
