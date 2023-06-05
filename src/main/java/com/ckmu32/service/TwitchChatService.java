@@ -145,6 +145,10 @@ public class TwitchChatService implements Utilities {
                 // var botUsernames = new StringJoiner(",");
 
                 for (var chatter : chattersList) {
+
+                    if (chatter.equals(user))
+                        continue;
+
                     if (!botList.contains(chatter))
                         continue;
 
@@ -162,6 +166,9 @@ public class TwitchChatService implements Utilities {
                     var userToBanID = userIDMap.get(chatter);
                     if (isInvalid(userToBanID))
                         continue;
+
+                        System.out.println(MessageFormat.format("Issuing ban for {0} on channel {1}", userToBanID,
+                        parsedMessage.get().getChannel()));
 
                     if (twitchAPI.banChatter(broadcasterID.trim(), userID.trim(), userToBanID.trim(), "Bot")) {
                         botsBanned++;
@@ -220,10 +227,15 @@ public class TwitchChatService implements Utilities {
             if (isInvalid(userID))
                 return;
 
-            var joinMessages = messageService.getJoinMessages(messageFromTwitch, twitchAPI, broadcasterIDMap, userIDMap);
+            var joinMessages = messageService.getJoinMessages(messageFromTwitch, twitchAPI, broadcasterIDMap,
+                    userIDMap);
             for (var message : joinMessages) {
                 System.out.println(MessageFormat.format("Processing join for user {0} on channel {1}",
                         message.userName(), message.channel()));
+
+                if (message.userName().equals(userID))
+                    continue;
+
                 if (!botList.contains(message.userName()))
                     continue;
 

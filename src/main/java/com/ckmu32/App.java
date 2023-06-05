@@ -14,7 +14,7 @@ import com.ckmu32.service.TwitchChatService;
  */
 public class App {
     private static final String BOT_CONFIG_PROPERTIES = "BotConfig.properties";
-
+    
     public static void main(String[] args) {
         System.out.println("Starting bot");
         // Variables required for the process.
